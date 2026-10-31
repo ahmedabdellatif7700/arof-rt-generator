@@ -1,0 +1,8 @@
+# build trees
+build*/
+# recordings
+records/
+# python
+__pycache__/
+*.pyc
+.venv/

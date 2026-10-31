@@ -1,0 +1,55 @@
+# Convenience wrapper around CMake and Docker. `make help` lists the targets.
+
+BUILD_DIR  ?= build
+BUILD_TYPE ?= Release
+# -mcpu: cortex-a72 for a Pi 4 (this board), cortex-a76 for a Pi 5, none off aarch64
+ifeq ($(shell uname -m),aarch64)
+MCPU       ?= cortex-a72
+else
+MCPU       ?=
+endif
+DOCKER_MCPU ?= $(or $(MCPU),cortex-a72)
+IMAGE      ?= arof-stream
+CONFIG     ?= config/default.json
+JOBS       ?= $(shell nproc)
+
+.PHONY: all help configure build test run docker docker-run clean distclean
+
+all: build
+
+help:
+	@echo "make build        configure and build natively ($(BUILD_DIR)/, -mcpu=$(MCPU))"
+	@echo "make test         build and run the unit tests"
+	@echo "make run          run the native binary with CONFIG=$(CONFIG)"
+	@echo "make docker       build the Docker image $(IMAGE) (MCPU=$(DOCKER_MCPU))"
+	@echo "make docker-run   run the image with config/ and records/ mounted"
+	@echo "make clean        remove the build tree"
+	@echo "make distclean    clean, also remove records/ and the Docker image"
+
+configure:
+	cmake -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DAROF_MCPU=$(MCPU)
+
+build: configure
+	cmake --build $(BUILD_DIR) -j$(JOBS)
+
+test: build
+	ctest --test-dir $(BUILD_DIR) --output-on-failure
+
+run: build
+	./$(BUILD_DIR)/arof_stream --config $(CONFIG)
+
+docker:
+	docker build --build-arg MCPU=$(DOCKER_MCPU) -t $(IMAGE) .
+
+docker-run:
+	mkdir -p records
+	docker run --rm --network host --cpus 3 --cap-add SYS_NICE \
+	    -v $(CURDIR)/config:/config -v $(CURDIR)/records:/records \
+	    $(IMAGE) --config /config/$(notdir $(CONFIG))
+
+clean:
+	rm -rf $(BUILD_DIR)
+
+distclean: clean
+	rm -rf records
+	-docker image rm $(IMAGE)
