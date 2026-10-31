@@ -24,6 +24,8 @@ if(AROF_MCPU)
 endif()
 add_compile_options(-Wall -Wextra)
 # No -ffast-math: the port must keep IEEE semantics (inf switches, nearbyint ties to even).
+# -fcx-limited-range only drops the NaN/inf recovery of complex multiply and divide.
+add_compile_options(-fcx-limited-range)
 
 # Dependencies: FFTW (double) and nlohmann/json.
 find_package(PkgConfig REQUIRED)
@@ -42,9 +44,32 @@ endif()
 
 find_package(Threads REQUIRED)
 
+# src/link: one module per matlab/link/*.m function; src/core: shared pieces (matlab/core and
+# the toolbox functions); src/stream: samples, recorder, network
+add_library(arof_core STATIC
+  src/core/comm.cpp
+  src/core/config.cpp
+  src/core/evaluate_outputs.cpp
+  src/core/link_settings.cpp
+  src/link/adc.cpp
+  src/link/default_link.cpp
+  src/link/envelope_detector.cpp
+  src/link/fiber.cpp
+  src/link/photodetector.cpp
+  src/link/receiver.cpp
+  src/link/rf_amp.cpp
+  src/link/rf_response.cpp
+  src/link/transmit_receive.cpp
+  src/link/transmitter.cpp
+  src/link/wireless_hop.cpp
+  src/stream/recorder.cpp
+  src/stream/sample_former.cpp
+  src/stream/streamer.cpp)
+target_include_directories(arof_core PUBLIC src)
+target_link_libraries(arof_core PUBLIC PkgConfig::FFTW3 nlohmann_json::nlohmann_json Threads::Threads)
+
 add_executable(arof_stream src/main.cpp)
-target_include_directories(arof_stream PRIVATE include)
-target_link_libraries(arof_stream PRIVATE PkgConfig::FFTW3 nlohmann_json::nlohmann_json Threads::Threads)
+target_link_libraries(arof_stream PRIVATE arof_core)
 
 include(CTest)
 if(BUILD_TESTING AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)

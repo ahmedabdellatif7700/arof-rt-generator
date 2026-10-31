@@ -5,3 +5,6 @@ reference
 docs
 **/__pycache__
 .venv
+matlab
+nn_training_model
+tools

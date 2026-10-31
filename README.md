@@ -10,27 +10,48 @@ MATLAB link, its demo notes and the reference dataset are in [reference/](refere
 
 ## Status
 
-| Milestone | Content | State |
-|---|---|---|
-| 1 | Skeleton: CMake, Dockerfile, default settings | done |
-| 2 | Link stages, receiver (calibration + acquisition), sample former, recorder, unit tests | – |
-| 3 | Recordings in the layout of `arof_training_data.mat`, `tools/to_mat.py`, `tools/evm_ber.py` | – |
-| 4 | `--bench`, TCP sender with absolute-time pacing, control port, `tools/fake_kv260.py` | – |
+Milestones 1-4 are implemented and checked on the Pi 4; the details, the measurements and the
+next steps are in [docs/STATUS.md](docs/STATUS.md). In short: 74/74 MATLAB reference points
+within tolerance (no-EQ EVM 13.19 % vs 13.21 % at 300 mV, -11.75 dBm), recordings byte-compatible
+with `nn_training_model`, 35 500 samples/s on one core, 10 k samples/s streamed at +0.000 % rate
+error.
 
 ## Layout
 
 ```
-CMakeLists.txt
-Makefile                 wrapper: build, test, run, docker, clean
-Dockerfile               arm64, multi-stage, debian:bookworm-slim pinned by digest
-config/default.json      settings; defaults are main_demo.m section 0
-include/, src/           generator (src/main.cpp only, for now)
-tests/                   unit tests
-tests/data/              small fixtures for the unit tests
-tools/                   Python helpers (to_mat.py, evm_ber.py, fake_kv260.py)
-docs/                    handoff plan
-reference/               main_demo.m, DEMO.md, export_dataset.m, arof_training_data.mat
+CMakeLists.txt, Makefile, Dockerfile, config/default.json
+src/link/      one module per matlab/link/*.m function: default_tx, default_link, driver_amp,
+               mzm, fiber, photodetector, carrier_noise, rf_amp, rf_response, wireless_hop,
+               envelope_detector, adc; transmitter/receiver/transmit_receive = transmit_receive.m
+src/core/      rng, comm (qammod, qamdemod, rcosdesign), evaluate_outputs, link_settings
+               (main_demo.m switches, applied as impairment_sweeps.m), config
+src/stream/    sample_former (Q8.24), recorder, frame (wire format), sample_ring, streamer
+               (generator, sender, control threads), --bench
+src/main.cpp   arof_stream
+tools/         export_dataset.py, evaluate_outputs.py + run_lms.py, compare_matlab.py,
+               fake_kv260.py, recording.py
+tests/         C++ unit tests, test_tools.py; data/: MATLAB results and Q8.24 fixtures
+docs/          handoff plan, STATUS.md
+reference/     main_demo.m, DEMO.md, export_dataset.m, arof_training_data.mat
 ```
+
+## Usage
+
+```
+arof_stream --calibrate                    # the link as main_demo.m prints it (no EQ, 44991 test symbols)
+arof_stream --record DIR [--samples N]     # a recording, no network
+arof_stream --bench 15                     # generation rate of this machine
+arof_stream                                # stream to stream.host:port, control on control_port
+arof_stream --set '{"link": {"rop_dbm": -13}}' ...   # any setting from the command line
+
+python tools/export_dataset.py DIR out.mat            # recording -> arof_training_data.mat layout
+python tools/evaluate_outputs.py DIR_OR_MAT           # no EQ and LMS FFE, as main_demo.m steps 8-9
+python tools/compare_matlab.py --set all              # against the MATLAB study's results
+python tools/fake_kv260.py --port 5000                # receiver stand-in: checks frames, rate, jitter
+echo '{"set": {"rop_dbm": -13}}' | nc RPI 5001        # live change (also {"status": true}, {"stop": true})
+```
+
+The Python tools need numpy and scipy (`python -m venv .venv && .venv/bin/pip install numpy scipy`).
 
 ## Build
 
@@ -76,6 +97,8 @@ docker run --rm --network host --cpus 3 --cap-add SYS_NICE \
 
 ## Settings
 
-`config/default.json` mirrors section 7 of the plan. The impairment switches use the same names
-and "off" values as `main_demo.m`; `-inf` and `inf` are written as the strings `"-inf"` and
-`"inf"` because JSON has no infinities.
+`config/default.json` mirrors section 7 of the plan. `"link"` holds the switches of
+`main_demo.m` section 0 with the same names and "off" values (`-inf` and `inf` are the strings
+`"-inf"` and `"inf"`, as JSON has no infinities). An optional `"stages"` section overrides any
+field of `default_link.m` by its MATLAB name, e.g. `{"stages": {"pd": {"cnr_db": 40}}}`, and
+`"tx"` any field of `default_tx.m`.
