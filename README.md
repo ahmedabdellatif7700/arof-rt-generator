@@ -49,6 +49,7 @@ python tools/export_dataset.py DIR out.mat            # recording -> arof_traini
 python tools/evaluate_outputs.py DIR_OR_MAT           # no EQ and LMS FFE, as main_demo.m steps 8-9
 python tools/compare_matlab.py --set all              # against the MATLAB study's results
 python tools/fake_kv260.py --port 5000                # receiver stand-in: checks frames, rate, jitter
+python tools/fake_kv260.py --file stream.bin          # the same checks on a saved stream (nc, Wireshark)
 echo '{"set": {"rop_dbm": -13}}' | nc RPI 5001        # live change (also {"status": true}, {"stop": true})
 ```
 
@@ -57,8 +58,9 @@ The Python tools need numpy and scipy (`python -m venv .venv && .venv/bin/pip in
 ## Build
 
 The [Makefile](Makefile) wraps the commands below: `make build`, `make test`, `make run`,
-`make docker`, `make docker-run`, `make clean`, `make distclean` (`make help` lists them).
-`MCPU`, `CONFIG`, `BUILD_DIR` and `IMAGE` can be overridden, e.g. `make docker MCPU=cortex-a76`.
+`make docker`, `make docker-run`, `make status`, `make clean`, `make distclean` (`make help`
+lists them). `MCPU`, `CONFIG`, `BUILD_DIR` and `IMAGE` can be overridden, e.g.
+`make docker MCPU=cortex-a76`; `make docker-run HOST=ip [PORT=n]` streams to that receiver.
 
 ### Docker (on the Pi)
 

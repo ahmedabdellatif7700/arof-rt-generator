@@ -12,8 +12,14 @@ DOCKER_MCPU ?= $(or $(MCPU),cortex-a72)
 IMAGE      ?= arof-stream
 CONFIG     ?= config/default.json
 JOBS       ?= $(shell nproc)
+# receiver of the stream (stream_rx or tools/fake_kv260.py); empty: as in CONFIG
+HOST       ?=
+PORT       ?=
+comma      := ,
+CONTAINER  ?= arof-stream
+STREAM_SET := $(if $(HOST)$(PORT),--set '{"stream": {$(if $(HOST),"host": "$(HOST)")$(if $(and $(HOST),$(PORT)),$(comma) )$(if $(PORT),"port": $(PORT))}}')
 
-.PHONY: all help configure build test run docker docker-run clean distclean
+.PHONY: all help configure build test run docker docker-run status clean distclean
 
 all: build
 
@@ -22,7 +28,9 @@ help:
 	@echo "make test         build and run the unit tests"
 	@echo "make run          run the native binary with CONFIG=$(CONFIG)"
 	@echo "make docker       build the Docker image $(IMAGE) (MCPU=$(DOCKER_MCPU))"
-	@echo "make docker-run   run the image with config/ and records/ mounted"
+	@echo "make docker-run   run the image with config/ and records/ mounted (foreground, Ctrl-C stops)"
+	@echo "                  HOST=ip [PORT=n]: stream to that receiver instead of CONFIG's"
+	@echo "make status       is the streamer container up: uptime, CPU/memory, its last log lines"
 	@echo "make clean        remove the build tree"
 	@echo "make distclean    clean, also remove records/ and the Docker image"
 
@@ -43,9 +51,18 @@ docker:
 
 docker-run:
 	mkdir -p records
-	docker run --rm --network host --cpus 3 --cap-add SYS_NICE \
+	docker run --rm --name $(CONTAINER) --network host --cpus 3 --cap-add SYS_NICE \
 	    -v $(CURDIR)/config:/config -v $(CURDIR)/records:/records \
-	    $(IMAGE) --config /config/$(notdir $(CONFIG))
+	    $(IMAGE) --config /config/$(notdir $(CONFIG)) $(STREAM_SET)
+
+status:
+	@if [ -n "$$(docker ps -q --filter name=^$(CONTAINER)$$)" ]; then \
+	    docker ps --filter name=^$(CONTAINER)$$ --format '$(CONTAINER) is UP: {{.Status}} (image {{.Image}}, id {{.ID}})'; \
+	    docker stats --no-stream --format 'CPU {{.CPUPerc}}, memory {{.MemUsage}}, network {{.NetIO}}' $(CONTAINER); \
+	    echo "last log lines:"; docker logs --tail 4 $(CONTAINER) 2>&1 | sed 's/^/  /'; \
+	else \
+	    echo "$(CONTAINER) is NOT running"; \
+	fi
 
 clean:
 	rm -rf $(BUILD_DIR)
