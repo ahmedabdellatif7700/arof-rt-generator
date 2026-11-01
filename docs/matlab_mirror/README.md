@@ -11,7 +11,7 @@ differs on the Pi.
 | 2 Driver + MZM | `driver_amp.m`, `mzm.m` | `link/driver_amp.h`, `link/mzm.h` | [02_driver_mzm.md](02_driver_mzm.md) |
 | 3 Fiber | `fiber.m` | `link/fiber.*` | [03_fiber.md](03_fiber.md) |
 | 4 Remote antenna unit | `photodetector.m`, `carrier_noise.m`, `rf_amp.m`, `rf_response.m` | `link/photodetector.*`, `link/carrier_noise.h`, `link/rf_amp.*`, `link/rf_response.*` | [04_remote_antenna_unit.md](04_remote_antenna_unit.md) |
-| 5 Wireless hop | `wireless_hop.m` | `link/wireless_hop.*` | |
+| 5 Wireless hop | `wireless_hop.m` | `link/wireless_hop.*` | [05_wireless_hop.md](05_wireless_hop.md) |
 | 6 Detector + ADC | `envelope_detector.m`, `adc.m` | `link/envelope_detector.*`, `link/adc.*` | |
 | 7 Offline DSP | inline: conv, timing, gain | `link/receiver.*` | |
 | 8 Equalization | `core/run_lms.m` (and the networks) | `tools/run_lms.py` (LMS only) | |
