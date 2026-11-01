@@ -70,6 +70,10 @@ All four milestones are done. Optional:
 - **Fiber:** overlap-save with +-128 taps (plan values); 2e-5 of the signal rms against
   MATLAB's single FFT at 15 km, 1.3e-4 at 100 km.
 
+- **Later (agreed 2026-11-01):** take EVM/BER out of the C++ generator (`core/evaluate_outputs.*`,
+  the calibration report, `--calibrate`, the JSON, `meta.json`); keep them in `tools/` and the tests.
+  Deferred until the docs walkthrough is done.
+
 ## Open points of the handoff (the user's decisions)
 
 - Target scale: grid (default, used so far) or unit.
