@@ -10,7 +10,7 @@ Where the work on the generator stands, so that it can be picked up again. Plan:
 | 1 Skeleton | CMake, Dockerfile (arm64, bookworm, digest pinned), Makefile, config | committed |
 | 2 Link, receiver, sample former, recorder | `src/link/` mirrors `matlab/link/` one module per function; `src/core/`, `src/stream/` | `make test`: 5 suites pass |
 | 3 Dataset layout, tools | `tools/export_dataset.py`, `evaluate_outputs.py`, `run_lms.py`, `compare_matlab.py` | see below |
-| 4 Bench, sender, control, fake KV260 | `--bench`, `stream/streamer.cpp` (generator, sender, control threads), `tools/fake_kv260.py` | loopback run below |
+| 4 Bench, sender, control, fake KV260 | `--bench`, `stream/streamer.cpp` (generator, sender, control threads), `tools/fake_kv260.py` | loopback and Docker runs below |
 
 ### Checks run on the Pi 4 (2026-10-31)
 
@@ -29,15 +29,36 @@ Where the work on the generator stands, so that it can be picked up again. Plan:
   10000.01 samples/s (+0.000 %), jitter 0.047 ms rms, p99 0.13 ms, no sequence gaps, no late
   samples during the 2.0 s recalibration (ring 3.2 s), END received.
 
+### Dockerized on the Pi 4 (2026-11-01)
+
+- **Image:** `make docker` builds in 2 min 19 s; the 4 C++ test suites pass in the build stage
+  (the Python tools test needs numpy and is skipped there). In the container, `--calibrate` gives
+  the native constants and results exactly; `--bench`: 34 200 samples/s (GCC 12 of bookworm).
+- **V4, 10 min** (`docker run --network host --cpus 3 --cap-add SYS_NICE`, SCHED_FIFO, to
+  `fake_kv260.py` on the host, ROP -11.75 -> -14.5 -> -11.75 dBm at 4 and 7 min):
+  6 021 160 samples in 602 118 frames, no protocol error, no sequence or sample gap, END received;
+  rate 9999.995 samples/s (-0.00005 %); jitter against the ideal schedule 0.12 ms rms, p99
+  0.27 ms, max 13.4 ms (one frame); inter-arrival 0.9-1.1 ms for 95.3 % of the frames, 2 frames
+  above 5 ms. Both changes: CONFIG frame, RECALIBRATED frame, recalibration 2.0-2.1 s (EVM
+  15.36 % at -14.5 dBm, MATLAB 15.36 %), no late samples (ring 3.3 s).
+- **main_demo.m vs the container** (50 000 symbols recorded in the container, scored by
+  `tools/evaluate_outputs.py` as main_demo.m steps 8-9, 44 991 test symbols):
+
+  | | no EQ EVM | no EQ BER | LMS EVM | LMS BER |
+  |---|---|---|---|---|
+  | main_demo.m (reference/DEMO.md) | 13.3 % | 1.1e-4 | 12.9 % | 1.1e-5 |
+  | arof_stream in Docker | 13.3 % | 1.06e-4 | 12.9 % | 2.2e-5 |
+
+  The LMS BERs are 2 and 4 bit errors in 179 964 bits: equal within statistics.
+
 ## Next steps
 
-1. **Dockerized run on the Pi:** `make docker`, then run the image (README "Run") against
-   `tools/fake_kv260.py` on the host; repeat the loopback check from inside the container.
-2. **V4 long run:** 10 min against `fake_kv260.py`, with the jitter histogram.
-3. **Clean-up:** delete `matlab/` and `nn_training_model/` from the working tree (not committed;
-   everything needed is in `tests/data/`).
-4. **Rates above ~17 k:** the generator is single-threaded. For 40-80 k samples/s, pipeline it on
-   2-3 threads (TX + MZM + fiber / RAU + wireless + detector + ADC / RX), plan section 9.
+All four milestones are done. Optional:
+
+- **Rates above ~17 k samples/s:** the generator is single-threaded (34-35 k samples/s on the Pi 4,
+  ~30 % of a core at 10 k). For 40-80 k, pipeline it on 2-3 threads (TX + MZM + fiber / RAU +
+  wireless + detector + ADC / RX), plan section 9.
+- **KV260 side** (plan section 11): `stream_rx` must read the CONFIG frames as described below.
 
 ## Decisions taken here (to confirm)
 

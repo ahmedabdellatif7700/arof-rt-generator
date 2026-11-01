@@ -10,11 +10,12 @@ MATLAB link, its demo notes and the reference dataset are in [reference/](refere
 
 ## Status
 
-Milestones 1-4 are implemented and checked on the Pi 4; the details, the measurements and the
-next steps are in [docs/STATUS.md](docs/STATUS.md). In short: 74/74 MATLAB reference points
-within tolerance (no-EQ EVM 13.19 % vs 13.21 % at 300 mV, -11.75 dBm), recordings byte-compatible
-with `nn_training_model`, 35 500 samples/s on one core, 10 k samples/s streamed at +0.000 % rate
-error.
+Milestones 1-4 are implemented and checked on the Pi 4, natively and in Docker; the details and
+measurements are in [docs/STATUS.md](docs/STATUS.md). In short: 74/74 MATLAB reference points
+within tolerance (no-EQ EVM 13.19 % vs 13.21 % at 300 mV, -11.75 dBm); a 50 000-symbol recording
+made in the container scores as `main_demo.m` (no EQ 13.3 %, LMS 12.9 %); recordings
+byte-compatible with `nn_training_model`; 34-35 k samples/s on one core; a 10-min Dockerized
+stream at 10 k samples/s with -0.00005 % rate error, 0.12 ms rms jitter and no gaps.
 
 ## Layout
 
