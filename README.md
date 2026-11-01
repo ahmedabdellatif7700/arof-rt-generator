@@ -57,9 +57,11 @@ The Python tools need numpy and scipy (`python -m venv .venv && .venv/bin/pip in
 
 ## Build
 
-The [Makefile](Makefile) wraps the commands below: `make build`, `make test`, `make run`,
-`make docker`, `make docker-run`, `make status`, `make clean`, `make distclean` (`make help`
-lists them). `MCPU`, `CONFIG`, `BUILD_DIR` and `IMAGE` can be overridden, e.g.
+On the Pi, `make` streams (Dockerized) to the receiver in the config (the KV260), and `make fake`
+to `127.0.0.1`, through the SSH tunnel that `make` in [host/](host/) opens from the laptop, whose
+`arof_rx` stands in for the KV260. The [Makefile](Makefile) also wraps the commands below:
+`make build`, `make test`, `make run`, `make docker`, `make docker-run`, `make status`,
+`make tunnel-close`, `make clean`, `make distclean` (`make help` lists them). `MCPU`, `CONFIG`, `BUILD_DIR` and `IMAGE` can be overridden, e.g.
 `make docker MCPU=cortex-a76`; `make docker-run HOST=ip [PORT=n]` streams to that receiver.
 
 ### Docker (on the Pi)

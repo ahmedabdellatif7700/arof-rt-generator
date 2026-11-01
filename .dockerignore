@@ -1,11 +1,8 @@
-.git
-build*
-records
-reference
-docs
+# Allow-list: only what the image is built from. Anything else (Makefile, docs, host/, editor
+# caches such as .cache/clangd) changing would otherwise invalidate the build cache.
+*
+!CMakeLists.txt
+!src
+!tests
+!config
 **/__pycache__
-.venv
-matlab
-nn_training_model
-tools
-host

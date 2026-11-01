@@ -19,11 +19,19 @@ comma      := ,
 CONTAINER  ?= arof-stream
 STREAM_SET := $(if $(HOST)$(PORT),--set '{"stream": {$(if $(HOST),"host": "$(HOST)")$(if $(and $(HOST),$(PORT)),$(comma) )$(if $(PORT),"port": $(PORT))}}')
 
-.PHONY: all help configure build test run docker docker-run status tunnel-close clean distclean
+.DEFAULT_GOAL := stream
+.PHONY: stream fake help configure build test run docker docker-run status tunnel-close clean distclean
 
-all: build
+# stream to the receiver: the KV260 (stream.host in CONFIG, or HOST=)
+stream: docker-run
+
+# stream to 127.0.0.1: the SSH tunnel to the laptop's arof_rx (host/: make), the fake KV260
+fake:
+	$(MAKE) docker-run HOST=127.0.0.1
 
 help:
+	@echo "make             stream to the receiver in CONFIG (the KV260), or HOST=ip; Ctrl-C stops"
+	@echo "make fake        stream to 127.0.0.1: through the SSH tunnel to the laptop (host/: make)"
 	@echo "make build        configure and build natively ($(BUILD_DIR)/, -mcpu=$(MCPU))"
 	@echo "make test         build and run the unit tests"
 	@echo "make run          run the native binary with CONFIG=$(CONFIG)"
