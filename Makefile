@@ -19,7 +19,7 @@ comma      := ,
 CONTAINER  ?= arof-stream
 STREAM_SET := $(if $(HOST)$(PORT),--set '{"stream": {$(if $(HOST),"host": "$(HOST)")$(if $(and $(HOST),$(PORT)),$(comma) )$(if $(PORT),"port": $(PORT))}}')
 
-.PHONY: all help configure build test run docker docker-run status clean distclean
+.PHONY: all help configure build test run docker docker-run status tunnel-close clean distclean
 
 all: build
 
@@ -32,6 +32,8 @@ help:
 	@echo "                  (foreground, Ctrl-C stops)"
 	@echo "                  HOST=ip [PORT=n]: stream to that receiver instead of CONFIG's"
 	@echo "make status       is the streamer container up: uptime, CPU/memory, its last log lines"
+	@echo "make tunnel-close end the SSH tunnel holding 127.0.0.1:$(or $(PORT),5000) (sudo; when the host's"
+	@echo "                  make reports the port busy)"
 	@echo "make clean        remove the build tree"
 	@echo "make distclean    clean, also remove records/ and the Docker image"
 
@@ -64,6 +66,12 @@ status:
 	else \
 	    echo "$(CONTAINER) is NOT running"; \
 	fi
+
+# sshd hides whose socket it is from users, hence sudo
+tunnel-close:
+	@pids=$$(sudo ss -tlnpH "sport = :$(or $(PORT),5000)" | grep sshd | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); \
+	if [ -n "$$pids" ]; then sudo kill $$pids && echo "closed the tunnel on port $(or $(PORT),5000) (sshd pid $$pids)"; \
+	else echo "no tunnel on port $(or $(PORT),5000)"; fi
 
 clean:
 	rm -rf $(BUILD_DIR)

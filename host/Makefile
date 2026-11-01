@@ -27,9 +27,14 @@ SSH_CTL   := /tmp/arof-tunnel-$(PORT).sock
 .PHONY: run build deps verify wireshark clean help
 
 run: arof_rx
-	@ssh -S $(SSH_CTL) -O exit $(PI) 2>/dev/null; rm -f $(SSH_CTL)   # a tunnel left by an interrupted run
-	@ssh -f -N -M -S $(SSH_CTL) -o ExitOnForwardFailure=yes -R $(PORT):localhost:$(PORT) $(PI) \
-	    || { echo "tunnel to $(PI) failed (port $(PORT) busy on the Pi?)"; exit 1; }
+	@# earlier tunnels from this host to that port (an interrupted make, a manual ssh -R): end them,
+	@# which frees the port on the Pi
+	@ssh -S $(SSH_CTL) -O exit $(PI) 2>/dev/null; rm -f $(SSH_CTL); \
+	    if pkill -f -- "^(/usr/bin/)?ssh .*-R $(PORT):localhost:$(PORT)"; then echo "closed an earlier tunnel to port $(PORT)"; sleep 1; fi
+	@ssh -f -N -M -S $(SSH_CTL) -o ExitOnForwardFailure=yes -o ServerAliveInterval=5 -o ServerAliveCountMax=3 \
+	    -R $(PORT):localhost:$(PORT) $(PI) \
+	    || { echo "tunnel to $(PI) failed: port $(PORT) is still busy on the Pi (a tunnel from another"; \
+	         echo "machine or a dead session). Free it on the Pi with: make tunnel-close"; exit 1; }
 	@echo "tunnel open: $(PI):127.0.0.1:$(PORT) -> localhost:$(PORT). On the Pi: make docker-run HOST=127.0.0.1"
 	@trap 'ssh -S $(SSH_CTL) -O exit $(PI) 2>/dev/null; echo "tunnel closed"' EXIT; \
 	    ./arof_rx --port $(PORT) --duration $(DURATION) --cycles $(CYCLES) --out $(OUT)
