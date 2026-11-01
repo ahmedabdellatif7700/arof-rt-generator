@@ -13,8 +13,8 @@ differs on the Pi.
 | 4 Remote antenna unit | `photodetector.m`, `carrier_noise.m`, `rf_amp.m`, `rf_response.m` | `link/photodetector.*`, `link/carrier_noise.h`, `link/rf_amp.*`, `link/rf_response.*` | [04_remote_antenna_unit.md](04_remote_antenna_unit.md) |
 | 5 Wireless hop | `wireless_hop.m` | `link/wireless_hop.*` | [05_wireless_hop.md](05_wireless_hop.md) |
 | 6 Detector + ADC | `envelope_detector.m`, `adc.m` | `link/envelope_detector.*`, `link/adc.*` | [06_detector_adc.md](06_detector_adc.md) |
-| 7 Offline DSP | inline: conv, timing, gain | `link/receiver.*` | |
-| 8 Equalization | `core/run_lms.m` (and the networks) | `tools/run_lms.py` (LMS only) | |
+| 7 Offline DSP | inline: conv, timing, gain | `link/receiver.*` | [07_offline_dsp.md](07_offline_dsp.md) |
+| 8 Equalization | `core/run_lms.m` (and the networks) | not on the Pi (the KV260 equalizes); `tools/run_lms.py` as an offline check | |
 | 9 Evaluation | `core/evaluate_outputs.m` | `core/evaluate_outputs.*`, `tools/evaluate_outputs.py` | |
 | The chain as a stream | `transmit_receive.m` | `link/transmit_receive.*` | |
 | Training samples, streaming | `analysis/export_dataset.m` (layout) | `stream/*`, `tools/export_dataset.py` | |
