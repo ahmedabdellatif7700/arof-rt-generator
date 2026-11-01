@@ -20,7 +20,7 @@ enum class Schedule { train, train_test };   // all TRAIN, or train_len TRAIN th
 struct SampleSettings {
     int taps = 2;
     Scale scale = Scale::grid;
-    Schedule schedule = Schedule::train;
+    Schedule schedule = Schedule::train_test;   // as nn_training_model: 80 % train, 20 % test
     uint64_t train_len = 7998, test_len = 2000;
 };
 

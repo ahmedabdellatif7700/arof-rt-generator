@@ -105,8 +105,8 @@ Three threads:
 Samples already in the ring when a change arrives go out with the old `config_id`; the change
 shows at the CONFIG + RECALIBRATED frames.
 
-`samples.schedule`: `train` (all TRAIN, default) or `train_test` (`train_len` TRAIN then
-`test_len` TEST samples, repeating); which one the KV260 needs is an open point.
+`samples.schedule`: `train_test` (default since 2026-11-01: `train_len` = 7998 TRAIN then
+`test_len` = 2000 TEST samples, repeating, as `nn_training_model`'s 80/20 split) or `train` (all TRAIN).
 
 ## 11f. `tools/fake_kv260.py`
 

@@ -77,5 +77,6 @@ All four milestones are done. Optional:
 ## Open points of the handoff (the user's decisions)
 
 - Target scale: grid (default, used so far) or unit.
-- Test segments: prequential only, or infer-mode TEST segments (`samples.schedule`).
+- ~~Test segments~~ decided 2026-11-01: infer-mode TEST segments by default, `samples.schedule =
+  train_test` (7998 TRAIN + 2000 TEST, as nn_training_model's 80/20 split); `train` stays available.
 - Re-acquisition after a change: default on; `rx.freeze_rx` for drift experiments.
