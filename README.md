@@ -8,6 +8,10 @@ TCP at a fixed symbol clock.
 The plan is [docs/rpi_stream_generator_handoff.md](docs/rpi_stream_generator_handoff.md). The
 MATLAB link, its demo notes and the reference dataset are in [reference/](reference/).
 
+For the whole picture (block diagrams of the link, the DSP chain and the Pi's role, the frame
+format, how the KV260's equalizer uses the stream, and the mapping to MATLAB and
+`nn_training_model`), start with [docs/DEMO.md](docs/DEMO.md).
+
 ## Status
 
 Milestones 1-4 are implemented and checked on the Pi 4, natively and in Docker; the details and
@@ -32,7 +36,7 @@ src/main.cpp   arof_stream
 tools/         export_dataset.py, evaluate_outputs.py + run_lms.py, compare_matlab.py,
                fake_kv260.py, recording.py
 tests/         C++ unit tests, test_tools.py; data/: MATLAB results and Q8.24 fixtures
-docs/          handoff plan, STATUS.md
+docs/          DEMO.md (overview), matlab_mirror/ (step by step), STATUS.md, handoff plan
 reference/     main_demo.m, DEMO.md, export_dataset.m, arof_training_data.mat
 ```
 
