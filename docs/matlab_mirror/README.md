@@ -16,7 +16,7 @@ differs on the Pi.
 | 7 Offline DSP | inline: conv, timing, gain | `link/receiver.*` | [07_offline_dsp.md](07_offline_dsp.md) |
 | 8 Equalization | `core/run_lms.m` (and the networks) | not on the Pi (the KV260 equalizes); `tools/run_lms.py` as an offline check | [08_equalization.md](08_equalization.md) |
 | 9 Evaluation | `core/evaluate_outputs.m` | `core/evaluate_outputs.*`, `tools/evaluate_outputs.py` | [09_evaluation.md](09_evaluation.md) |
-| The chain as a stream | `transmit_receive.m` | `link/transmit_receive.*` | |
+| The chain as a stream | `transmit_receive.m` | `link/transmit_receive.*` | [10_chain_as_stream.md](10_chain_as_stream.md) |
 | Training samples, streaming | `analysis/export_dataset.m` (layout) | `stream/*`, `tools/export_dataset.py` | |
 
 C++ paths are relative to `src/`.
