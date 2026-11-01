@@ -1,8 +1,10 @@
-// Received symbols -> training samples in the layout of analysis/export_dataset.m and
-// nn_training_model's train_samples_q8_24.mem. With T taps, sample n is
-//   X(n) = [Re x(n) Im x(n) Re x(n-1) Im x(n-1) ... ]  (newest first),  Y(n) = [Re d(n) Im d(n)]
-// as 2T+2 Q8.24 words. Scale grid (export_dataset.m): rx = sqrt(10)*x, tx = round(sqrt(10)*d),
-// so Y is on the integer grid {+-1, +-3}.
+// Received symbols -> samples as matlab/equalizer.py (model 'real') builds them for main_demo.m
+// step 8, and analysis/export_dataset.m exports them. With T taps, the sample whose newest
+// symbol is k is
+//   X = [Re x(k) Im x(k) Re x(k-1) Im x(k-1) ... Re x(k-T+1) Im x(k-T+1)]   (newest first)
+//   Y = [Re d(k-D) Im d(k-D)],  D = floor(T/2)                               (the center tap)
+// as 2T+2 Q8.24 words. Scale unit: unit-power 16QAM, levels +-1/sqrt(10), +-3/sqrt(10) (as
+// equalizer.py for sigmoid and tanh networks); grid: times sqrt(10), Y on {+-1, +-3} (multilevel).
 #pragma once
 
 #include <cstdint>
@@ -15,13 +17,15 @@
 namespace arof {
 
 enum class Scale { grid, unit };
-enum class Schedule { train, train_test };   // all TRAIN, or train_len TRAIN then test_len TEST
+// demo: train_len TRAIN then test_len TEST, repeating (main_demo.m step 8: 5000 + 44 991);
+// train: every sample TRAIN
+enum class Schedule { train, demo };
 
 struct SampleSettings {
-    int taps = 2;
-    Scale scale = Scale::grid;
-    Schedule schedule = Schedule::train_test;   // as nn_training_model: 80 % train, 20 % test
-    uint64_t train_len = 7998, test_len = 2000;
+    int taps = 3;                               // the 6-12-2 tanh (own_tanh_6)
+    Scale scale = Scale::unit;
+    Schedule schedule = Schedule::demo;
+    uint64_t train_len = 5000, test_len = 44991;
 };
 
 // The word equalizer_q8_24.py writes for the value v: load_dataset casts X and Y to float32,
@@ -42,7 +46,8 @@ public:
 private:
     SampleSettings s_;
     double k_;
-    std::deque<cd> taps_;   // newest first
+    std::deque<cd> taps_;   // received symbols, newest first
+    std::deque<cd> sent_;   // their sent symbols, newest first
     uint64_t n_ = 0;
 };
 

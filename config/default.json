@@ -3,9 +3,9 @@
             "bias_drift": 0, "rin_dbhz": "-inf", "pd_sat": "inf",
             "pa_memory": 0, "ripple_rho": 0, "adc_clip": "inf" },
   "rx":   { "freeze_rx": false, "calib_symbols": 50000, "train_symbols": 5000 },
-  "samples": { "taps": 2, "scale": "grid", "schedule": "train_test" },
+  "samples": { "taps": 3, "scale": "unit", "schedule": "demo" },
   "stream": { "rate_sps": 10000, "frame_ms": 1, "host": "192.168.1.10", "port": 5000,
               "control_port": 5001 },
   "seed": 2017,
-  "record": { "enable": false, "dir": "/records", "max_samples": 9998 }
+  "record": { "enable": false, "dir": "/records", "max_samples": 49991 }
 }

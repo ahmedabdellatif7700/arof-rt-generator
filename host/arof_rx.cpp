@@ -9,10 +9,10 @@
 //   configs.json, summary.json the CONFIG frames' JSON, the checks and counts
 //   cycle_000/, cycle_001/ ... with --cycles K: the same files for each complete cycle
 //
-// Cycles (schedule train_test): the Pi marks sample i TEST when i % (train_len + test_len) >=
+// Cycles (schedule demo): the Pi marks sample i TEST when i % (train_len + test_len) >=
 // train_len, i = first_sample + offset, counted from 0 at its start. A cycle is the train_len +
-// test_len samples from an index that is a multiple of the period: 7998 TRAIN + 2000 TEST, the
-// split nn_training_model gives a 9998-sample dataset. A cycle counts only if it is complete,
+// test_len samples from an index that is a multiple of the period: 5000 TRAIN + 44 991 TEST, the
+// training and test sets of main_demo.m step 8 (49 991 samples). A cycle counts only if it is complete,
 // without a gap, and under one config_id; otherwise it is dropped and the next boundary is awaited.
 //
 //   arof_rx --out DIR [--port 5000] [--duration S] [--samples N] [--cycles K]
@@ -114,7 +114,7 @@ private:
             try {
                 configs.push_back(json::parse(std::string(reinterpret_cast<const char*>(p), len)));
                 const json& s = configs.back().at("settings").at("samples");
-                train_test_ = s.at("schedule").get<std::string>() == "train_test";
+                demo_ = s.at("schedule").get<std::string>() == "demo";
                 train_len_ = s.at("train_len").get<uint64_t>();
                 period_ = train_len_ + s.at("test_len").get<uint64_t>();
             } catch (const std::exception& e) {
@@ -168,8 +168,8 @@ private:
 
     // one received sample; false once max_cycles complete cycles are in
     bool track_cycle(uint64_t idx, size_t pos, uint32_t config_id, bool test) {
-        if (!train_test_ || period_ == 0) {
-            if (!warned_) error("--cycles needs samples.schedule train_test in the stream's CONFIG");
+        if (!demo_ || period_ == 0) {
+            if (!warned_) error("--cycles needs samples.schedule demo in the stream's CONFIG");
             warned_ = true;
             return true;
         }
@@ -204,7 +204,7 @@ private:
     bool have_seq_ = false, have_sample_ = false;
     uint32_t seq_next_ = 0, cid_ = 0, announced_ = 0;
     uint64_t sample_next_ = 0;
-    bool train_test_ = false, in_cycle_ = false, warned_ = false;
+    bool demo_ = false, in_cycle_ = false, warned_ = false;
     uint64_t train_len_ = 0, period_ = 0;
     Cycle cyc_{};
 };
@@ -238,7 +238,7 @@ int listen_on(int port) {
 
 struct LinkInfo {
     double vpp = 0, rop = 0, seed = 0;
-    bool grid = true;
+    bool grid = false;
 };
 
 LinkInfo link_of(const json& config) {
@@ -267,12 +267,14 @@ double write_set(const fs::path& dir, const std::vector<int32_t>& words, const s
     }
     if (n == 0) return -1;
     const Dataset ds = reconstruct(std::vector<int32_t>(s, s + n * w), wps, li.grid);
-    if (li.grid)
-        for (double y : ds.Y)
-            if (y != 1 && y != -1 && y != 3 && y != -3) {
-                bad_grid = true;
-                break;
-            }
+    const double k = li.grid ? 1.0 : std::sqrt(10.0);              // Y on {+-1, +-3} after scaling
+    for (double y : ds.Y) {
+        const double a = std::fabs(k * y);
+        if (std::fabs(a - 1) > 1e-6 && std::fabs(a - 3) > 1e-6) {
+            bad_grid = true;
+            break;
+        }
+    }
     write_mat((dir / "dataset.mat").string(), ds, li.vpp, li.rop, li.seed);
     return ds.evm_no_eq;
 }
@@ -402,7 +404,7 @@ int main(int argc, char** argv) {
         cycles.push_back({{"dir", name}, {"first_sample", c.first_sample}, {"config_id", c.config_id},
                           {"samples", len}, {"evm_no_eq", e}});
     }
-    if (bad_grid) chk.error("Y not on the 16QAM grid {+-1, +-3}");
+    if (bad_grid) chk.error("Y not a 16QAM point (levels 1, 3, times 1/sqrt(10) at unit scale)");
 
     json summary = {{"frames", chk.frames}, {"samples", n}, {"words_per_sample", wps},
                     {"test_samples", std::count(chk.flags.begin(), chk.flags.end(), 1)},

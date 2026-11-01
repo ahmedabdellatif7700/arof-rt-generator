@@ -1,12 +1,13 @@
-// The training dataset back from the received samples. Each sample is 2T + 2 Q8.24 words
-// (src/stream/sample_former.h): X = [Re x(n) Im x(n) ... Re x(n-T+1) Im x(n-T+1)] (newest first),
-// Y = [Re d(n) Im d(n)]. reconstruct() decodes the words (value = word / 2^24) and rebuilds the
-// fields of export_dataset.m (reference/arof_training_data.mat); write_mat() saves them (matio).
+// The dataset back from the received samples. Each sample is 2T + 2 Q8.24 words
+// (src/stream/sample_former.h), as equalizer.py builds them: X = [Re x(k) Im x(k) ...
+// Re x(k-T+1) Im x(k-T+1)] (newest first), Y = [Re d(k-D) Im d(k-D)], the center tap,
+// D = floor(T/2). reconstruct() decodes the words (value = word / 2^24) and rebuilds the fields
+// of export_dataset.m (reference/arof_training_data.mat); write_mat() saves them (matio).
 //
 // One difference from a recording's export: the symbol fields (rx_aligned, tx_*) have one entry
-// per sample, the symbol each sample targets. The stream carries the received value of the
-// oldest tap's first symbol but not its sent point, so the extra leading symbol of the reference
-// layout (9999 symbols for 9998 samples) cannot be rebuilt. X and Y are those of the stream.
+// per sample, the center-tap symbol each sample targets. The stream carries the sent point only
+// at the center taps, so the T - 1 edge symbols of the reference layout (N + T - 1 symbols for
+// N samples) cannot be rebuilt. X and Y are those of the stream.
 #pragma once
 
 #include <cmath>
@@ -22,11 +23,12 @@ namespace arof {
 struct Dataset {
     size_t n = 0;                               // samples
     int taps = 0;
-    bool grid = true;                           // scale "grid": x, d times sqrt(10), Y on {+-1, +-3}
+    bool grid = false;                          // scale "grid": x, d times sqrt(10), Y on {+-1, +-3};
+                                                // "unit": unit power (levels +-1/sqrt(10), +-3/sqrt(10))
     std::vector<double> X;                      // n x 2T, column-major (as MATLAB)
     std::vector<double> Y;                      // n x 2, column-major
-    std::vector<std::complex<double>> rx, tx;   // per sample: newest tap x(n), target d(n)
-    std::vector<uint8_t> idx;                   // Gray label of d(n), as qammod(0:15, 16, 'gray')
+    std::vector<std::complex<double>> rx, tx;   // per sample: center tap x(k-D), target d(k-D)
+    std::vector<uint8_t> idx;                   // Gray label of d(k-D), as qammod(0:15, 16, 'gray')
     double evm_no_eq = 0;                       // export_dataset.m: sqrt(mean|x - d|^2 / mean|d|^2)
 };
 
@@ -58,7 +60,8 @@ inline Dataset reconstruct(const std::vector<int32_t>& words, int words_per_samp
         for (size_t c = 0; c < nx; ++c) ds.X[c * ds.n + i] = s[c] * unit;
         ds.Y[i] = s[nx] * unit;
         ds.Y[ds.n + i] = s[nx + 1] * unit;
-        ds.rx[i] = {ds.X[i], ds.X[ds.n + i]};
+        const size_t c = static_cast<size_t>(2 * (ds.taps / 2));          // the center tap's columns
+        ds.rx[i] = {ds.X[c * ds.n + i], ds.X[(c + 1) * ds.n + i]};
         ds.tx[i] = {ds.Y[i], ds.Y[ds.n + i]};
         int best = 0;
         double dmin = 1e300;
@@ -79,13 +82,7 @@ inline void write_mat(const std::string& path, const Dataset& ds, double vpp_mv,
     MatFile m(path);
     const size_t n = ds.n;
     m.add<double>("X", ds.X.data(), nullptr, n, static_cast<size_t>(2 * ds.taps));
-    if (ds.grid) {
-        std::vector<int16_t> y(ds.Y.size());
-        for (size_t i = 0; i < y.size(); ++i) y[i] = static_cast<int16_t>(std::lround(ds.Y[i]));
-        m.add<int16_t>("Y", y.data(), nullptr, n, 2);
-    } else {
-        m.add<double>("Y", ds.Y.data(), nullptr, n, 2);
-    }
+    m.add<double>("Y", ds.Y.data(), nullptr, n, 2);
     std::vector<double> re(n), im(n);
     auto complex_field = [&](const char* name, const std::vector<std::complex<double>>& v) {
         for (size_t i = 0; i < n; ++i) re[i] = v[i].real(), im[i] = v[i].imag();
@@ -101,10 +98,11 @@ inline void write_mat(const std::string& path, const Dataset& ds, double vpp_mv,
     m.add<uint8_t>("tx_bits", bits.data(), nullptr, bits.size(), 1);
     m.scalar<uint8_t>("mod_order", 16);
     m.scalar<uint8_t>("bits_per_symbol", 4);
-    m.scalar<uint8_t>("delay", static_cast<uint8_t>(ds.taps - 1));
+    m.scalar<uint8_t>("delay", static_cast<uint8_t>(ds.taps / 2));
     m.scalar<uint8_t>("equalizer_taps", static_cast<uint8_t>(ds.taps));
     m.scalar<uint8_t>("equalizer_input_size", static_cast<uint8_t>(2 * ds.taps));
     m.scalar<uint8_t>("equalizer_output_size", 2);
+    m.text("scale", ds.grid ? "grid" : "unit");
     m.scalar<double>("vpp_mv", vpp_mv);
     m.scalar<double>("rop_dbm", rop_dbm);
     m.scalar<double>("seed", seed);

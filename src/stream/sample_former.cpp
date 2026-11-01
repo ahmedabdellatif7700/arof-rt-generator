@@ -25,7 +25,11 @@ bool SampleFormer::next_is_test() const {
 
 bool SampleFormer::push(const RxSymbol& s, std::vector<int32_t>& words, std::vector<double>* values) {
     taps_.push_front(s.x);
-    if (taps_.size() > static_cast<size_t>(s_.taps)) taps_.pop_back();
+    sent_.push_front(s.d);
+    if (taps_.size() > static_cast<size_t>(s_.taps)) {
+        taps_.pop_back();
+        sent_.pop_back();
+    }
     if (taps_.size() < static_cast<size_t>(s_.taps)) return false;
     auto put = [&](double v) {
         words.push_back(to_q8_24(v));
@@ -35,7 +39,8 @@ bool SampleFormer::push(const RxSymbol& s, std::vector<int32_t>& words, std::vec
         put(k_ * x.real());
         put(k_ * x.imag());
     }
-    const cd d = s_.scale == Scale::grid ? cd(std::round(k_ * s.d.real()), std::round(k_ * s.d.imag())) : s.d;
+    const cd& c = sent_[static_cast<size_t>(s_.taps / 2)];              // the center tap
+    const cd d = s_.scale == Scale::grid ? cd(std::round(k_ * c.real()), std::round(k_ * c.imag())) : c;
     put(d.real());
     put(d.imag());
     ++n_;
@@ -49,12 +54,12 @@ Scale parse_scale(const std::string& s) {
 }
 
 Schedule parse_schedule(const std::string& s) {
+    if (s == "demo") return Schedule::demo;
     if (s == "train") return Schedule::train;
-    if (s == "train_test") return Schedule::train_test;
-    throw std::invalid_argument("schedule must be train or train_test: " + s);
+    throw std::invalid_argument("schedule must be demo or train: " + s);
 }
 
 const char* to_string(Scale s) { return s == Scale::grid ? "grid" : "unit"; }
-const char* to_string(Schedule s) { return s == Schedule::train ? "train" : "train_test"; }
+const char* to_string(Schedule s) { return s == Schedule::train ? "train" : "demo"; }
 
 }  // namespace arof

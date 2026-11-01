@@ -31,7 +31,7 @@ struct StreamSettings {
 struct RecordSettings {
     bool enable = false;
     std::string dir = "/records";
-    uint64_t max_samples = 9998;
+    uint64_t max_samples = 49991;   // one demo cycle: 5000 train + 44 991 test
 };
 
 struct Settings {

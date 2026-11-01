@@ -25,6 +25,9 @@ def load(path):
     import scipy.io
     m = scipy.io.loadmat(path)
     rx, tx = m["rx_aligned"].ravel(), m["tx_aligned"].ravel()
-    k = 1.0 if np.iscomplexobj(tx) and np.max(np.abs(tx)) < 2 else GRID   # unit or grid scale
+    if "scale" in m:                                               # export_dataset.m's 'unit' / 'grid'
+        k = GRID if str(np.ravel(m["scale"])[0]).strip() == "grid" else 1.0
+    else:                                                          # older exports: grid unless unit power
+        k = 1.0 if np.iscomplexobj(tx) and np.max(np.abs(tx)) < 2 else GRID
     meta = {k2: m[k2].item() for k2 in ("vpp_mv", "rop_dbm", "seed") if k2 in m}
     return Sequence(rx / k, tx / k, m["tx_indices"].ravel().astype(np.int64), meta, str(path))

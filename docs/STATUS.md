@@ -18,11 +18,15 @@ Where the work on the generator stands, so that it can be picked up again. Plan:
   `compare_results.mat` and `impairments_results.mat` within tolerance (EVM within 2.5 %, BER
   within a factor of 2 where MATLAB has >= 1e-4). At 300 mV, -11.75 dBm: EVM 13.19 % (MATLAB
   13.21 %), BER 7.5e-5 (7.2e-5). The MATLAB numbers are in `tests/data/matlab_*_results.csv`.
-- **Layout:** a 9998-sample recording exported by `tools/export_dataset.py` has the fields, MATLAB
-  classes and shapes of `reference/arof_training_data.mat`. `nn_training_model/equalizer_q8_24.py`
-  trained on it unchanged, and its `train/test_samples_q8_24.mem` are byte-identical to the
-  recorder's (train_test schedule). Q8.24 rule: float32 cast first, then round half even
-  (`tests/data/q8_24_fixture.txt`), uppercase hex.
+- **Layout (2026-11-01, the samples of `matlab/equalizer.py` for the 6-12-2 tanh):** 3 taps
+  newest first, the center tap `d(k-1)` as target, unit power. A recording of one `demo` cycle
+  (49 991 samples) exported by `tools/export_dataset.py` has the fields, MATLAB classes, columns,
+  `delay`, `scale` of the new `reference/arof_training_data.mat`; its `.mem` files are the Q8.24
+  words of that `.mat`, 5000 train + 44 991 test; no EQ 13.27 %, LMS 12.86 % (reference dataset
+  13.38 %, 13.04 %). A cycle received by `host/arof_rx` is byte-identical to `--record`. Q8.24
+  rule: float32 cast first, then round half even (`tests/data/q8_24_fixture.txt`), uppercase
+  hex. (Before: 2 taps, newest target, grid scale, 9998 samples split 80/20, checked the same way
+  against `nn_training_model`'s output.)
 - **Bench:** 35 500 samples/s on one Cortex-A72 core (1.77 M simulation samples/s);
   calibration 2.2 s. With the 2x margin: `rate_sps` up to ~17 700.
 - **Loopback** (generator -> `fake_kv260.py`, 10 k samples/s, 35 s, live ROP change): rate
@@ -68,7 +72,7 @@ All four milestones are done. Optional:
   are sent with the old config_id; the change shows at the RECALIBRATED frame.
 - **A frame lost to a dropped connection:** its samples are counted (`lost_samples` in the status)
   and `first_sample` still advances, so it stays the generator's sample index: a receiver that
-  connects later sees cycles aligned with the TEST schedule (`first_sample % 9998 == 0`).
+  connects later sees cycles aligned with the TEST schedule (`first_sample % 49991 == 0`).
 - **ADC outside the calibrated range:** samples saturate at the end codes (a fixed full scale).
 - **Fiber:** overlap-save with +-128 taps (plan values); 2e-5 of the signal rms against
   MATLAB's single FFT at 15 km, 1.3e-4 at 100 km.
@@ -79,7 +83,11 @@ All four milestones are done. Optional:
 
 ## Open points of the handoff (the user's decisions)
 
-- Target scale: grid (default, used so far) or unit.
-- ~~Test segments~~ decided 2026-11-01: infer-mode TEST segments by default, `samples.schedule =
-  train_test` (7998 TRAIN + 2000 TEST, as nn_training_model's 80/20 split); `train` stays available.
+- ~~Target scale~~ decided 2026-11-01: `unit` (unit-power 16QAM, as `equalizer.py` for tanh and
+  sigmoid networks); `grid` stays available for the multilevel ones. With it: 3 taps, center-tap
+  target (`docs/DEMO.md` section 4).
+- ~~Test segments~~ decided 2026-11-01: `samples.schedule = demo` mirrors `main_demo.m` step 8,
+  5000 TRAIN + 44 991 TEST repeating; one cycle (49 991 samples) is the project's dataset, in
+  MATLAB and on the hardware. `train` (all TRAIN) stays for pure online training; the earlier
+  `train_test` (7998 + 2000) is gone.
 - Re-acquisition after a change: default on; `rx.freeze_rx` for drift experiments.

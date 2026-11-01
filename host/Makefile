@@ -7,8 +7,9 @@
 PI        ?= rpi4b
 PORT      ?= 5000
 CYCLES    ?= 10
-# upper limit in seconds from the connection (0: none); 10 cycles take about 10 s
-DURATION  ?= 60
+# upper limit in seconds from the connection (0: none); a cycle (5000 TRAIN + 44 991 TEST) takes
+# about 5 s, so 10 cycles about 50 s, plus up to 5 s waiting for the first cycle boundary
+DURATION  ?= 120
 # a new directory per capture
 ifeq ($(origin OUT),undefined)
 OUT       := captures/$(shell date +%Y%m%d-%H%M%S)

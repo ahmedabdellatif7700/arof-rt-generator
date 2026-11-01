@@ -11,8 +11,8 @@ RECALIBRATED). Reports the mean sample rate (from the first data frame on), the 
 jitter against the ideal schedule, and a histogram of the inter-arrival times. Exits 1 on any
 protocol error. Stops at an END frame, after --duration seconds, or on Ctrl-C.
 With --file the same checks run on a saved byte stream (no timing), and the samples are decoded:
-Y on the 16QAM grid, and the no-EQ EVM of the newest tap against Y, as export_dataset.m
-(sqrt(mean|x - y|^2 / mean|y|^2))."""
+Y a 16QAM point, and the no-EQ EVM of the center tap x(k-D) against its target Y = d(k-D), as
+export_dataset.m (sqrt(mean|x - y|^2 / mean|y|^2))."""
 import argparse
 import json
 import socket
@@ -168,7 +168,8 @@ def main():
             s["rate_error"] = rate / s["nominal_rate_sps"] - 1
     if kept and wps:
         v = np.frombuffer(b"".join(kept), dtype="<i4").reshape(-1, wps) / 2.0 ** 24
-        x, y = v[:, 0] + 1j * v[:, 1], v[:, -2] + 1j * v[:, -1]
+        c = 2 * (((wps - 2) // 2) // 2)                  # the center tap's columns, D = floor(taps/2)
+        x, y = v[:, c] + 1j * v[:, c + 1], v[:, -2] + 1j * v[:, -1]
         scale = configs[0]["settings"]["samples"]["scale"] if configs else None
         s["decoded"] = {
             "scale": scale,
@@ -177,8 +178,9 @@ def main():
             "y_values": sorted({float(u) for u in np.unique(v[:, -2:])}),
             "evm_no_eq": float(np.sqrt(np.mean(np.abs(x - y) ** 2) / np.mean(np.abs(y) ** 2))),
         }
-        if scale == "grid" and not set(s["decoded"]["y_values"]) <= {-3.0, -1.0, 1.0, 3.0}:
-            errors.append("Y not on the 16QAM grid {+-1, +-3}")
+        k = np.sqrt(10) if scale == "unit" else 1.0
+        if scale and not np.allclose(np.unique(np.round(k * np.abs(v[:, -2:]), 5)), [1, 3], atol=1e-5):
+            errors.append("Y not a 16QAM point (levels 1, 3, times 1/sqrt(10) at unit scale)")
     if configs:
         c = configs[0]
         s["config"] = {"seed": c["settings"]["seed"], "link": c["settings"]["link"],

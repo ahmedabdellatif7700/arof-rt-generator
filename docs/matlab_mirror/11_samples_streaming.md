@@ -1,35 +1,41 @@
 # Step 11: Training samples and streaming to the KV260
 
-The part MATLAB does not have. The received symbols of step 7 become training samples in the
-layout of `reference/arof_training_data.mat` (`export_dataset.m`) and the Q8.24 words of
-`nn_training_model`, and go to the KV260 over TCP at a fixed rate. The only MATLAB reference is
-the layout; the rest (recorder, wire format, pacing, control) is the Pi's own.
+The part MATLAB does not have as a stream. The received symbols of step 7 become the samples
+`matlab/equalizer.py` builds for `main_demo.m` step 8 (the 6-12-2 tanh, `own_tanh_6`), in the
+layout `export_dataset.m` exports (`reference/arof_training_data.mat`), as Q8.24 words, and go to
+the KV260 over TCP at a fixed rate. The MATLAB references are the samples and the layout; the
+rest (recorder, wire format, pacing, control) is the Pi's own.
 
-## 11a. The sample layout (`export_dataset.m`)
+## 11a. The samples (`equalizer.py`, `export_dataset.m`)
 
-```matlab
-grid = sqrt(10);                                        % unit power -> {+-1, +-3}
-rx = grid * x;  tx = round(grid * d);
-X = [real(rx(2:end)), imag(rx(2:end)), real(rx(1:end-1)), imag(rx(1:end-1))];
-Y = int16([real(tx(2:end)), imag(tx(2:end))]);
+```python
+def iq_tdl(x, ks, taps):        # equalizer.py: columns [I(k) Q(k) I(k-1) Q(k-1) ...]
+    for m in range(taps):
+        cols += [x[:, ks - m].real, x[:, ks - m].imag]
+U  = scale * iq_tdl(x, k_train, taps)
+tt = scale * t[:, k_train - taps // 2]            # target: the center tap
 ```
 
-- **Taps:** 2 symbols, newest first: `X(n) = [Re x(n) Im x(n) Re x(n−1) Im x(n−1)]`, 4 inputs of
-  the 4-12-2 engine.
-- **Target:** `Y(n)` = the sent symbol `d(n)`.
-- **Scale "grid":** both times √10, so `Y` is on the integer grid {±1, ±3}.
-- 9999 symbols → 9998 samples; the engine's split 80/20 = 7998 train + 2000 test.
+- **Taps:** 3 symbols, newest first: `X = [Re x(k) Im x(k) Re x(k−1) Im x(k−1) Re x(k−2) Im x(k−2)]`,
+  the 6 inputs of the 6-12-2 tanh.
+- **Target:** the center tap, `Y = d(k − floor(T/2)) = d(k−1)`: the network sees one symbol after
+  its target and one before.
+- **Scale "unit":** unit-power 16QAM (levels ±1/√10, ±3/√10), as `equalizer.py` uses for tanh
+  and sigmoid networks (scale 1.0); `grid` (×√10, {±1, ±3}) is its scale for the multilevel ones.
+- **Train and test:** `equalizer.py` trains on the windows k = 6 … 5005 (MATLAB 1-based) and tests
+  on k = 5006 … 49 996, back to back: 5000 + 44 991 samples, the stream's `demo` cycle.
 
 C++: `src/stream/sample_former.*`, one sample per symbol once `taps` symbols have arrived:
 
 ```cpp
 for (const cd& x : taps_) { put(k_ * x.real()); put(k_ * x.imag()); }   // newest first
-const cd d = grid ? cd(round(k_ * d.real()), round(k_ * d.imag())) : d;
+const cd& c = sent_[taps / 2];                                          // the center tap
+const cd d = grid ? cd(round(k_ * c.real()), round(k_ * c.imag())) : c;
 put(d.real()); put(d.imag());
 ```
 
-`samples.taps` (default 2) and `samples.scale` (`grid` default, or `unit`) are settings; the
-scale is an open point of the handoff.
+`samples.taps` (default 3; 2 gives 6 words for today's 4-12-2 engine) and `samples.scale`
+(`unit` default, or `grid`) are settings.
 
 ## 11b. Q8.24 words (`nn_training_model`)
 
@@ -42,12 +48,12 @@ const double q = std::nearbyint(f * 16777216.0);               // ties to even
 // saturate to int32
 ```
 
-Each sample is `2·taps + 2` = 6 words; in `.mem` files one word per line, 8 uppercase hex
+Each sample is `2·taps + 2` = 8 words; in `.mem` files one word per line, 8 uppercase hex
 digits, two's complement.
 
 ## 11c. Recording (`--record DIR`, `src/stream/recorder.*`)
 
-The first `max_samples` (default 9998) samples of the stream:
+The first `max_samples` (default 49 991, one `demo` cycle) samples of the stream:
 
 | File | Content |
 |---|---|
@@ -105,8 +111,8 @@ Three threads:
 Samples already in the ring when a change arrives go out with the old `config_id`; the change
 shows at the CONFIG + RECALIBRATED frames.
 
-`samples.schedule`: `train_test` (default since 2026-11-01: `train_len` = 7998 TRAIN then
-`test_len` = 2000 TEST samples, repeating, as `nn_training_model`'s 80/20 split) or `train` (all TRAIN).
+`samples.schedule`: `demo` (default: `train_len` = 5000 TRAIN then `test_len` = 44 991 TEST
+samples, repeating, the training and test sets of `main_demo.m` step 8) or `train` (all TRAIN).
 
 ## 11f. `tools/fake_kv260.py`
 
@@ -131,11 +137,14 @@ The layout and the Q8.24 words are the same; the transport is new.
 
 - `tests/test_samples.cpp`: `q8_24_rounds_half_to_even`; `q8_24_words_as_nn_training_model`
   (the fixture of `nn_training_model`'s words, `tests/data/q8_24_fixture.txt`, equal);
-  `layout_newest_first_on_grid`; `unit_scale_and_taps`; `train_test_schedule`; `recorder_files`;
+  `layout_as_equalizer_py`; `grid_scale_and_taps`; `demo_schedule`; `recorder_files`;
   the settings tests (`settings_round_trip`, `unknown_settings_rejected`, `live_set`).
-- `tests/test_tools.py`: a recording exported to `.mat` has the fields, classes and shapes of
-  `arof_training_data.mat`; its `.mem` files are byte-identical to what `nn_training_model` writes
-  for that `.mat`; no EQ 13.28 % / LMS 12.98 % vs the reference 13.32 % / 12.98 %.
+- `tests/test_tools.py`: a recording of one `demo` cycle exported to `.mat` has the fields, classes,
+  columns, `delay` and `scale` of `arof_training_data.mat`, X and Y as `equalizer.py` builds them;
+  its `.mem` files are the Q8.24 words of that `.mat`, 5000 train + 44 991 test; no EQ 13.27 % /
+  LMS 12.86 % vs the reference 13.38 % / 13.04 %.
+- `host/arof_rx --cycles`: a received `demo` cycle is byte-identical to `--record` (both `.mem`
+  files, samples, flags); 13.26–13.29 % per cycle.
 - `docs/STATUS.md`: 10 minutes in Docker to `fake_kv260.py`: 6 021 160 samples, no protocol
   error or gap, rate error −0.00005 %, jitter 0.12 ms rms, two live changes without late samples.
 - `--bench`: about 35 500 samples/s native, 34 200 in Docker (the stream runs at 10 000).

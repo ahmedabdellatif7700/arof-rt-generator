@@ -1,8 +1,10 @@
-"""A recording through tools/export_dataset.py and tools/evaluate_outputs.py:
+"""A recording (schedule demo: 5000 TRAIN + 44 991 TEST) through tools/export_dataset.py and
+tools/evaluate_outputs.py:
   - the exported .mat has the layout of reference/arof_training_data.mat (fields, MATLAB classes,
-    shapes, X/Y from rx/tx, Gray bits);
-  - the recorder's .mem files hold the words nn_training_model writes for that .mat (float32 cast,
-    to_q, 80/20 split, uppercase hex);
+    columns, X/Y from rx/tx as equalizer.py: 3 taps newest first, center-tap target, unit power,
+    Gray bits);
+  - the recorder's .mem files hold the Q8.24 words of that .mat (float32 cast, to_q, uppercase
+    hex), split by the TEST flag: the first 5000 train, the next 44 991 test;
   - no-EQ and LMS results of the recording are those of the reference dataset (within statistics).
 Usage: python tests/test_tools.py BUILD/arof_stream   (exit 77 = skipped: no numpy/scipy)"""
 import subprocess
@@ -52,8 +54,7 @@ def main():
     binary = sys.argv[1]
     with tempfile.TemporaryDirectory() as tmp:
         rec = Path(tmp) / "rec"
-        subprocess.run([binary, "--config", str(ROOT / "config" / "default.json"), "--set",
-                        '{"samples": {"schedule": "train_test"}}', "--record", str(rec)],
+        subprocess.run([binary, "--config", str(ROOT / "config" / "default.json"), "--record", str(rec)],
                        check=True, capture_output=True)
         out = Path(tmp) / "rec.mat"
         export(rec, out)
@@ -68,19 +69,25 @@ def main():
         for k in keys:
             if k == "source":
                 continue
-            check(rc[k].dtype == gc[k].dtype and rc[k].shape == gc[k].shape
-                  and np.iscomplexobj(ref[k]) == np.iscomplexobj(got[k]), f"{k}: class, shape, complexity")
+            same_cols = rc[k].ndim == gc[k].ndim and (rc[k].ndim < 2 or rc[k].shape[1] == gc[k].shape[1])
+            check(rc[k].dtype == gc[k].dtype and same_cols and np.iscomplexobj(ref[k]) == np.iscomplexobj(got[k]),
+                  f"{k}: class, columns, complexity")
+        for k in ("delay", "equalizer_taps", "equalizer_input_size", "scale"):
+            check(np.array_equal(np.ravel(ref[k]), np.ravel(got[k])), f"{k} as the reference ({np.ravel(got[k])[0]})")
         X, Y, rx, tx = got["X"], got["Y"], got["rx_aligned"].ravel(), got["tx_aligned"].ravel()
-        check(np.array_equal(X[:, 0] + 1j * X[:, 1], rx[1:]) and np.array_equal(X[:, 2] + 1j * X[:, 3], rx[:-1]),
-              "X = [rx(n) rx(n-1)], newest first")
-        check(np.array_equal(Y[:, 0] + 1j * Y[:, 1], tx[1:]), "Y = tx(n)")
-        check(set(np.unique(Y)) == {-3, -1, 1, 3}, "Y on the grid {-3,-1,1,3}")
+        n = len(rx)
+        check(X.shape == (n - 2, 6) and all(np.array_equal(X[:, 2 * m] + 1j * X[:, 2 * m + 1], rx[2 - m:n - m])
+                                            for m in range(3)), "X = [rx(k) rx(k-1) rx(k-2)], newest first")
+        check(np.array_equal(Y[:, 0] + 1j * Y[:, 1], tx[1:n - 1]), "Y = tx(k-1), the center tap")
+        check(np.allclose(np.unique(np.round(Y * np.sqrt(10), 9)), [-3, -1, 1, 3]),
+              "Y unit-power 16QAM: levels +-1/sqrt(10), +-3/sqrt(10)")
         check(np.array_equal(got["tx_bits"].ravel().reshape(-1, 4) @ [8, 4, 2, 1], got["tx_indices"].ravel()),
               "tx_bits: de2bi(idx, 4, 'left-msb')")
 
         # the .mem words nn_training_model would write for this .mat
         words = to_q(np.hstack([X, Y.astype(np.float64)]))
-        split = int(0.8 * len(X))
+        split = 5000                                    # schedule demo: main_demo.m step 8
+        check(len(X) == 49991, f"one demo cycle: {len(X)} samples")
         for name, part in (("train", words[:split]), ("test", words[split:])):
             lines = (rec / f"{name}_samples_q8_24.mem").read_text().split()
             exp = [f"{int(w) & 0xFFFFFFFF:08X}" for w in part.ravel()]

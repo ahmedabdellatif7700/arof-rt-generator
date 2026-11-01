@@ -1,4 +1,5 @@
-// Sample former (layout, scaling, Q8.24 words as nn_training_model), recorder files, settings.
+// Sample former (layout as equalizer.py, scaling, Q8.24 words as nn_training_model), recorder
+// files, settings.
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -61,50 +62,53 @@ TEST(q8_24_words_as_nn_training_model) {
     CHECK(bad == 0);
 }
 
-TEST(layout_newest_first_on_grid) {
+TEST(layout_as_equalizer_py) {
+    // the defaults: 3 taps, unit power, target the center tap d(k-1), as equalizer.py ('real')
     SampleFormer f(SampleSettings{});
-    CHECK(f.words_per_sample() == 6);
+    CHECK(f.words_per_sample() == 8);
     const auto& q = qam16_gray();
     std::vector<RxSymbol> s;
-    for (uint8_t i = 0; i < 5; ++i) s.push_back({q[i] * 1.01 + cd(0.001 * i, 0), q[i], i, i});
+    for (uint8_t i = 0; i < 6; ++i) s.push_back({q[i] * 1.01 + cd(0.001 * i, 0), q[i], i, i});
     std::vector<int32_t> w;
     std::vector<double> v;
-    CHECK(!f.push(s[0], w, &v));   // the first symbol has no previous tap
-    for (int n = 1; n < 5; ++n) {
+    CHECK(!f.push(s[0], w, &v));   // a window needs 3 symbols
+    CHECK(!f.push(s[1], w, &v));
+    for (int k = 2; k < 6; ++k) {
         w.clear();
         v.clear();
-        CHECK(f.push(s[n], w, &v));
-        const double k = std::sqrt(10.0);
-        CHECK_NEAR(v[0], k * s[n].x.real(), 1e-15);       // Re x(n)
-        CHECK_NEAR(v[1], k * s[n].x.imag(), 1e-15);       // Im x(n)
-        CHECK_NEAR(v[2], k * s[n - 1].x.real(), 1e-15);   // Re x(n-1)
-        CHECK_NEAR(v[3], k * s[n - 1].x.imag(), 1e-15);   // Im x(n-1)
-        CHECK(v[4] == std::round(k * s[n].d.real()));      // Re d(n) on {+-1, +-3}
-        CHECK(v[5] == std::round(k * s[n].d.imag()));
-        CHECK(std::fabs(v[4]) == 1 || std::fabs(v[4]) == 3);
-        for (int i = 0; i < 6; ++i) CHECK(w[i] == to_q8_24(v[i]));
+        CHECK(f.push(s[k], w, &v));
+        for (int m = 0; m < 3; ++m) {                      // [I x(k) Q x(k) I x(k-1) ... ]
+            CHECK(v[2 * m] == s[k - m].x.real());
+            CHECK(v[2 * m + 1] == s[k - m].x.imag());
+        }
+        CHECK(v[6] == s[k - 1].d.real() && v[7] == s[k - 1].d.imag());   // center tap, unit power
+        CHECK(std::fabs(std::fabs(v[6]) * std::sqrt(10.0) - std::round(std::fabs(v[6]) * std::sqrt(10.0))) < 1e-12);
+        for (int i = 0; i < 8; ++i) CHECK(w[i] == to_q8_24(v[i]));
     }
     CHECK(f.samples() == 4);
 }
 
-TEST(unit_scale_and_taps) {
+TEST(grid_scale_and_taps) {
     SampleSettings ss;
-    ss.scale = Scale::unit;
-    ss.taps = 3;
+    ss.scale = Scale::grid;
+    ss.taps = 2;                     // today's 4-12-2 engine: 6 words, center tap d(k-1)
     SampleFormer f(ss);
-    CHECK(f.words_per_sample() == 8);
+    CHECK(f.words_per_sample() == 6);
     const auto& q = qam16_gray();
     std::vector<int32_t> w;
     std::vector<double> v;
-    for (uint8_t i = 0; i < 3; ++i) f.push({q[i], q[i], i, i}, w, &v);
-    CHECK(v.size() == 8);
-    CHECK(v[0] == q[2].real() && v[2] == q[1].real() && v[4] == q[0].real());
-    CHECK(v[6] == q[2].real());
+    for (uint8_t i = 0; i < 2; ++i) f.push({q[i] * 1.01, q[i], i, i}, w, &v);
+    CHECK(v.size() == 6);
+    const double k = std::sqrt(10.0);
+    CHECK_NEAR(v[0], k * 1.01 * q[1].real(), 1e-14);
+    CHECK_NEAR(v[2], k * 1.01 * q[0].real(), 1e-14);
+    CHECK(v[4] == std::round(k * q[0].real()) && v[5] == std::round(k * q[0].imag()));   // d(k-1) on {+-1, +-3}
+    CHECK(std::fabs(v[4]) == 1 || std::fabs(v[4]) == 3);
 }
 
-TEST(train_test_schedule) {
+TEST(demo_schedule) {
     SampleSettings ss;
-    ss.schedule = Schedule::train_test;
+    ss.taps = 2;
     ss.train_len = 3;
     ss.test_len = 2;
     SampleFormer f(ss);
@@ -115,6 +119,7 @@ TEST(train_test_schedule) {
         if (f.push({0, 0, 0, k}, w)) tags += test ? 'T' : 't';
     }
     CHECK(tags == "tttTTtttTTt");
+    CHECK(SampleSettings{}.train_len == 5000 && SampleSettings{}.test_len == 44991);   // main_demo.m step 8
 }
 
 TEST(recorder_files) {
@@ -122,7 +127,7 @@ TEST(recorder_files) {
     std::filesystem::remove_all(dir);
     {
         SampleSettings ss;
-        ss.schedule = Schedule::train_test;
+        ss.taps = 2;
         ss.train_len = 2;
         ss.test_len = 1;
         SampleFormer f(ss);
