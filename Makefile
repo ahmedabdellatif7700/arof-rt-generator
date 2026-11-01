@@ -28,7 +28,8 @@ help:
 	@echo "make test         build and run the unit tests"
 	@echo "make run          run the native binary with CONFIG=$(CONFIG)"
 	@echo "make docker       build the Docker image $(IMAGE) (MCPU=$(DOCKER_MCPU))"
-	@echo "make docker-run   run the image with config/ and records/ mounted (foreground, Ctrl-C stops)"
+	@echo "make docker-run   (re)build the image if needed, run it with config/ and records/ mounted"
+	@echo "                  (foreground, Ctrl-C stops)"
 	@echo "                  HOST=ip [PORT=n]: stream to that receiver instead of CONFIG's"
 	@echo "make status       is the streamer container up: uptime, CPU/memory, its last log lines"
 	@echo "make clean        remove the build tree"
@@ -49,7 +50,7 @@ run: build
 docker:
 	docker build --build-arg MCPU=$(DOCKER_MCPU) -t $(IMAGE) .
 
-docker-run:
+docker-run: docker
 	mkdir -p records
 	docker run --rm --name $(CONTAINER) --network host --cpus 3 --cap-add SYS_NICE \
 	    -v $(CURDIR)/config:/config -v $(CURDIR)/records:/records \
