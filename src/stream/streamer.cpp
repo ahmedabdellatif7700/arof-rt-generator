@@ -325,8 +325,13 @@ void Streamer::sender_thread() {
             {
                 const uint16_t flags = static_cast<uint16_t>((tag.test ? kTest : 0) | (recal_flag ? kRecalibrated : 0));
                 if (!send_frame(flags, static_cast<uint32_t>(run), static_cast<uint16_t>(wps), tag.config_id,
-                                words.data(), words.size() * sizeof(int32_t)))
+                                words.data(), words.size() * sizeof(int32_t))) {
+                    // the run is out of the ring: count it as lost but keep first_sample the
+                    // generator's sample index, which the TEST schedule follows
+                    first_sample += run;
+                    stats_.lost_samples.fetch_add(run);
                     goto reconnect;
+                }
             }
             recal_flag = false;
             first_sample += run;
@@ -415,6 +420,7 @@ json Streamer::status() const {
         {"late_samples", stats_.late_samples.load()},
         {"slips", stats_.slips.load()},
         {"reconnects", stats_.reconnects.load()},
+        {"lost_samples", stats_.lost_samples.load()},
         {"generated", stats_.generated.load()},
         {"ring", ring_ ? ring_->size() : 0},
         {"generator_busy", stats_.gen_busy.load()},

@@ -66,6 +66,9 @@ All four milestones are done. Optional:
   byte count and `words_per_sample` is 0. `stream_rx` must read it this way.
 - **Live changes take effect after the ring:** samples already in the ring (up to 3.2 s at 10 k)
   are sent with the old config_id; the change shows at the RECALIBRATED frame.
+- **A frame lost to a dropped connection:** its samples are counted (`lost_samples` in the status)
+  and `first_sample` still advances, so it stays the generator's sample index: a receiver that
+  connects later sees cycles aligned with the TEST schedule (`first_sample % 9998 == 0`).
 - **ADC outside the calibrated range:** samples saturate at the end codes (a fixed full scale).
 - **Fiber:** overlap-save with +-128 taps (plan values); 2e-5 of the signal rms against
   MATLAB's single FFT at 15 km, 1.3e-4 at 100 km.

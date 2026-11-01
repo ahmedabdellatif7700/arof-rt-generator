@@ -31,6 +31,7 @@ struct StreamStats {
     std::atomic<uint64_t> late_samples{0};      // due but not ready (generator behind)
     std::atomic<uint64_t> slips{0};             // pacing re-anchored after falling > 100 ms behind
     std::atomic<uint64_t> reconnects{0};
+    std::atomic<uint64_t> lost_samples{0};      // in a frame whose send failed (connection lost)
     std::atomic<uint64_t> generated{0};         // samples formed
     std::atomic<double> gen_busy{0};            // generator busy fraction (last second)
 };
