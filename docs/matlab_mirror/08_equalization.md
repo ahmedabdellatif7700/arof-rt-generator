@@ -63,6 +63,6 @@ Everything: the Pi has no step 8. The table row exists to show where MATLAB's eq
 | 300 mV, −15.5 dBm | 17.06 % | 17.07 % | 16.80 % | 16.80 % | 2.9e-03 | 3.0e-03 |
 | 400 mV, −11.5 dBm | 17.96 % | 18.00 % | 17.51 % | 17.54 % | 1.2e-04 | 1.6e-04 |
 
-And `main_demo.m` against a recording made in the container (`docs/STATUS.md`): LMS 12.9 % in
+And `main_demo.m` against a recording made in the container (`docs/DEMO.md` section 11): LMS 12.9 % in
 both. The data from the Pi gives the equalizer the same gain over no EQ as MATLAB's data, which
 is the point of the check.

@@ -4,7 +4,7 @@ How good the received symbols are: EVM and BER on the test symbols. Like step 8,
 shape the stream: the samples sent to the KV260 are the same with or without it. On the Pi it is
 used for reporting and checking only.
 
-(Agreed for later, see `docs/STATUS.md`: take EVM/BER out of the C++ generator and keep them in
+(Agreed for later, see `docs/DEMO.md` section 11: take EVM/BER out of the C++ generator and keep them in
 the tools and tests. This note describes the code as it is now.)
 
 ## MATLAB
@@ -76,5 +76,5 @@ run `tools/evaluate_outputs.py`.
 - `tools/compare_matlab.py`: no-EQ EVM and BER from `--calibrate --json` (this step's C++)
   against all 74 points of the study, all within tolerance; with `--lms`, recordings scored by
   `evaluate_outputs.py` (step 8).
-- `main_demo.m` (reference/DEMO.md) against a recording made in the container: no EQ 13.3 % /
+- `main_demo.m` (`matlab/DEMO.md`) against a recording made in the container: no EQ 13.3 % /
   1.1e-4 vs 13.3 % / 1.06e-4.

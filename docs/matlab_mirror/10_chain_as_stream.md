@@ -122,5 +122,5 @@ streaming fiber (step 3), the generator's own random numbers.
 - `impairment_switches_as_impairment_sweeps`: each `main_demo.m` switch sets the stage as
   `impairment_sweeps.m` does.
 
-End to end, `docs/STATUS.md`: 10 minutes in Docker with two live ROP changes, no gap in `k`, the
+End to end, `docs/DEMO.md` section 11: 10 minutes in Docker with two live ROP changes, no gap in `k`, the
 EVM after each change as MATLAB at that ROP (15.36 % at −14.5 dBm, MATLAB 15.36 %).

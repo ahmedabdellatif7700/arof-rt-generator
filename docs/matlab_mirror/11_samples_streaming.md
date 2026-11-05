@@ -89,7 +89,7 @@ stream of frames, little-endian. A 36-byte header:
 - **CONFIG frame:** opens every connection and precedes every change: header + the full settings
   and calibration as JSON. The first data frame after it carries RECALIBRATED. The handoff does
   not define the CONFIG payload length; here it is `n_samples` bytes with `words_per_sample = 0`
-  (to confirm, `docs/STATUS.md`).
+  (`docs/DEMO.md` section 6).
 - **END:** the last frame when the generator stops.
 
 ## 11e. Real-time sending (`src/stream/streamer.*`)
@@ -145,6 +145,6 @@ The layout and the Q8.24 words are the same; the transport is new.
   LMS 12.86 % vs the reference 13.38 % / 13.04 %.
 - `host/arof_rx --cycles`: a received `demo` cycle is byte-identical to `--record` (both `.mem`
   files, samples, flags); 13.26–13.29 % per cycle.
-- `docs/STATUS.md`: 10 minutes in Docker to `fake_kv260.py`: 6 021 160 samples, no protocol
+- `docs/DEMO.md` section 11: 10 minutes in Docker to `fake_kv260.py`: 6 021 160 samples, no protocol
   error or gap, rate error −0.00005 %, jitter 0.12 ms rms, two live changes without late samples.
 - `--bench`: about 35 500 samples/s native, 34 200 in Docker (the stream runs at 10 000).

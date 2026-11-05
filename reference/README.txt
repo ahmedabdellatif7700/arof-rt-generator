@@ -1,6 +1,6 @@
 Raspberry Pi A-RoF generator: reference files from the MATLAB repository
 
-main_demo.m, DEMO.md     the MATLAB experiment: the link (steps 1-7) the generator ports, the
+main_demo.m              the MATLAB experiment: the link (steps 1-7) the generator ports, the
                          equalizers (step 8), EVM and BER (step 9)
 equalizer.py             matlab/equalizer.py: trains the networks of step 8. Its 'real' model
                          builds the samples the generator streams (3 taps, center tap, unit power)
@@ -17,3 +17,6 @@ arof_training_data.mat   (matlab/results/arof_training_data.mat, as exported by 
     The generator's recordings and captures have this layout. Its size (9998 samples) is that of
     this export; the dataset the project uses mirrors main_demo.m step 8: 49 991 samples, the first
     5000 to train and the next 44 991 to test (the stream's `demo` schedule).
+
+These are copies; after the merge into the main project they are replaced by the originals
+(docs/INTEGRATION_HANDOFF.md section 3).

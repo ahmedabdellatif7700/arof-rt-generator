@@ -1,4 +1,4 @@
-// Real-time streaming (handoff section 5): three threads
+// Real-time streaming (docs/DEMO.md section 4): three threads
 //   generator  TransmitReceive -> SampleFormer -> SampleRing (1 s of samples ahead of the sender);
 //              applies live settings changes (recalibration, new config_id) between chunks;
 //              records the first record.max_samples sent samples when record.enable

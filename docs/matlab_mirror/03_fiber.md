@@ -63,7 +63,7 @@ one FFT wraps around):
 The in-band PD noise of step 4 is about 2e-2 of the signal: the truncation is ~1000× smaller.
 Longer windows shrink the error further (±512 taps: 1.4e-6 at 15 km), so truncation is its only
 source. The plan's ±128 is kept. The handoff's 1e-9 target is not reachable with a practical
-window (see `docs/STATUS.md`, decisions).
+window (see `docs/DEMO.md` section 12).
 
 End to end, the fiber-length sweep of `impairments_results.mat` (15, 30, 60, 100 km) is within
 tolerance at every point, e.g. 13.40 % EVM at 100 km (MATLAB 13.45 %).

@@ -1,4 +1,4 @@
-// Wire format (handoff section 6): one TCP connection from the RPi (client) to stream_rx on
+// Wire format (docs/DEMO.md section 6): one TCP connection from the RPi (client) to stream_rx on
 // the KV260, a stream of frames, little-endian. A 36-byte header, then
 //   data frames:    n_samples * words_per_sample int32 words (the Q8.24 samples, file order)
 //   CONFIG frames:  n_samples bytes of JSON text (the full settings), words_per_sample = 0
